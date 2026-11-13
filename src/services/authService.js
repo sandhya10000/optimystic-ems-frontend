@@ -252,6 +252,18 @@ export const adminAPI = {
       );
     }
   },
+  // GET ALL ATTENDANCE data
+  getAllAttendance: async () => {
+    try {
+      const response = await api.get("/admin/attendance/getAllAttendance");
+      console.log(response, "response get all attendence");
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        getErrorMessage(error, "Unable to generate salary slip."),
+      );
+    }
+  },
 };
 
 export const employeeAPI = {

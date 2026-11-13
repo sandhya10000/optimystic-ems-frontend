@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CircularProgress, Alert } from "@mui/material";
-import { getEmployeeDashboard } from "../../services/employeeService";
+import { employeeAPI } from "../../services/authService";
 import {
   Box,
   Grid,
@@ -50,31 +50,34 @@ const EmployeeDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        setLoading(true);
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        const response = await getEmployeeDashboard();
+      const response = await employeeAPI.getEmployeeDashboard();
 
-        if (response.success) {
-          const employee = response.data.employee;
+      if (response?.success) {
+        const employee = response?.data?.employee;
 
+        if (employee) {
           setUser(employee);
 
           // Keep latest employee details in localStorage
           localStorage.setItem("user", JSON.stringify(employee));
+        } else {
+          setError("Employee information not found.");
         }
-      } catch (err) {
-        setError(
-          err.response?.data?.message ||
-            "Unable to load dashboard information.",
-        );
-      } finally {
-        setLoading(false);
+      } else {
+        setError(response?.message || "Unable to load dashboard information.");
       }
-    };
-
+    } catch (err) {
+      setError(err.message || "Unable to load dashboard information.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
     fetchDashboard();
   }, []);
 

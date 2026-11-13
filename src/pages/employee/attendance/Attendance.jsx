@@ -1,10 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import {
-  getTodayAttendance,
-  getMyAttendance,
-  employeeCheckIn,
-  employeeCheckOut,
-} from "../../../services/employeeService";
+import { employeeAPI } from "../../../services/authService";
+
 import {
   Box,
   Typography,
@@ -34,8 +30,6 @@ import {
   CalendarMonth,
   Refresh,
 } from "@mui/icons-material";
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 // Home Page Green & Orange Theme
 const COLORS = {
@@ -67,97 +61,114 @@ const Attendance = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Use local date instead of UTC date
+  // Current month in YYYY-MM format
   const currentDate = new Date();
+
   const currentMonth = [
     currentDate.getFullYear(),
     String(currentDate.getMonth() + 1).padStart(2, "0"),
   ].join("-");
 
-  // API request helper
-  const apiRequest = async (endpoint, options = {}) => {
-    const token = localStorage.getItem("token");
+  // --------------------------------------------------
+  // FETCH TODAY'S ATTENDANCE AND MONTHLY HISTORY
+  // --------------------------------------------------
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Something went wrong");
-    }
-
-    return data;
-  };
-
-  // Fetch today's attendance and monthly history
-  // Fetch today's attendance and monthly history
   const fetchAttendance = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
       const [todayData, historyData] = await Promise.all([
-        getTodayAttendance(),
-        getMyAttendance(currentMonth),
+        employeeAPI.getTodayAttendance(),
+        employeeAPI.getMyAttendance(currentMonth),
       ]);
 
-      setToday(todayData.attendance || null);
-      setHistory(historyData.attendance || []);
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to fetch attendance",
+      if (todayData?.success === false) {
+        throw new Error(
+          todayData.message || "Unable to fetch today's attendance.",
+        );
+      }
+
+      if (historyData?.success === false) {
+        throw new Error(
+          historyData.message || "Unable to fetch attendance history.",
+        );
+      }
+
+      setToday(todayData?.attendance || null);
+      setHistory(
+        Array.isArray(historyData?.attendance) ? historyData.attendance : [],
       );
+    } catch (err) {
+      console.error("Attendance Fetch Error:", err);
+
+      setError(err.message || "Unable to fetch attendance.");
     } finally {
       setLoading(false);
     }
   }, [currentMonth]);
 
-  // Check In
+  // --------------------------------------------------
+  // EMPLOYEE CHECK-IN
+  // --------------------------------------------------
+
   const handleCheckIn = async () => {
     try {
       setActionLoading(true);
       setError("");
 
-      await employeeCheckIn();
+      const response = await employeeAPI.employeeCheckIn();
+
+      if (response?.success === false) {
+        throw new Error(response.message || "Check in failed.");
+      }
 
       await fetchAttendance();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Check in failed");
+      console.error("Check In Error:", err);
+
+      setError(err.message || "Check in failed.");
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Check Out
+  // --------------------------------------------------
+  // EMPLOYEE CHECK-OUT
+  // --------------------------------------------------
+
   const handleCheckOut = async () => {
     try {
       setActionLoading(true);
       setError("");
 
-      await employeeCheckOut();
+      const response = await employeeAPI.employeeCheckOut();
+
+      if (response?.success === false) {
+        throw new Error(response.message || "Check out failed.");
+      }
 
       await fetchAttendance();
     } catch (err) {
-      setError(
-        err.response?.data?.message || err.message || "Check out failed",
-      );
+      console.error("Check Out Error:", err);
+
+      setError(err.message || "Check out failed.");
     } finally {
       setActionLoading(false);
     }
   };
 
+  // --------------------------------------------------
+  // LOAD ATTENDANCE ON COMPONENT MOUNT
+  // --------------------------------------------------
+
   useEffect(() => {
     fetchAttendance();
   }, [fetchAttendance]);
+
+  // --------------------------------------------------
+  // FORMAT TIME
+  // --------------------------------------------------
 
   const formatTime = (date) => {
     if (!date) return "--";
@@ -169,6 +180,10 @@ const Attendance = () => {
     });
   };
 
+  // --------------------------------------------------
+  // FORMAT DATE
+  // --------------------------------------------------
+
   const formatDate = (date) => {
     if (!date) return "--";
 
@@ -178,6 +193,10 @@ const Attendance = () => {
       year: "numeric",
     });
   };
+
+  // --------------------------------------------------
+  // ATTENDANCE CHIP STYLE
+  // --------------------------------------------------
 
   const getAttendanceChipStyle = (type) => {
     const styles = {
@@ -208,6 +227,10 @@ const Attendance = () => {
     };
   };
 
+  // --------------------------------------------------
+  // CALCULATE WORKING HOURS
+  // --------------------------------------------------
+
   const calculateWorkingHours = (checkIn, checkOut) => {
     if (!checkIn) return "--";
 
@@ -215,6 +238,7 @@ const Attendance = () => {
     const end = checkOut ? new Date(checkOut) : new Date();
 
     const minutes = Math.max(0, Math.floor((end - start) / 60000));
+
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
 
@@ -222,6 +246,10 @@ const Attendance = () => {
   };
 
   const attendanceType = today?.attendanceType;
+
+  // --------------------------------------------------
+  // LOADING UI
+  // --------------------------------------------------
 
   if (loading) {
     return (
@@ -236,6 +264,10 @@ const Attendance = () => {
     );
   }
 
+  // --------------------------------------------------
+  // MAIN UI
+  // --------------------------------------------------
+
   return (
     <Box
       sx={{
@@ -244,7 +276,8 @@ const Attendance = () => {
         backgroundColor: COLORS.lightGreen,
       }}
     >
-      {/* Header */}
+      {/* HEADER */}
+
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
@@ -270,6 +303,7 @@ const Attendance = () => {
           variant="outlined"
           startIcon={<Refresh />}
           onClick={fetchAttendance}
+          disabled={actionLoading}
           sx={{
             color: COLORS.green,
             borderColor: COLORS.green,
@@ -298,7 +332,8 @@ const Attendance = () => {
         </Alert>
       )}
 
-      {/* Today's Attendance */}
+      {/* TODAY'S ATTENDANCE */}
+
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} md={8}>
           <Card elevation={0} sx={cardStyle}>
@@ -325,7 +360,7 @@ const Attendance = () => {
                   </Typography>
                 </Box>
 
-                {today?.attendanceType && (
+                {attendanceType && (
                   <Chip
                     icon={
                       attendanceType === "WFO" ? <Business /> : <HomeWork />
@@ -333,7 +368,9 @@ const Attendance = () => {
                     label={
                       attendanceType === "WFO"
                         ? "Work From Office"
-                        : "Work From Home"
+                        : attendanceType === "WFH"
+                          ? "Work From Home"
+                          : attendanceType
                     }
                     sx={getAttendanceChipStyle(attendanceType)}
                   />
@@ -410,7 +447,7 @@ const Attendance = () => {
                       }
                       sx={
                         today?.checkIn
-                          ? getAttendanceChipStyle("WFO")
+                          ? getAttendanceChipStyle(attendanceType)
                           : getAttendanceChipStyle("Absent")
                       }
                     />
@@ -487,7 +524,8 @@ const Attendance = () => {
           </Card>
         </Grid>
 
-        {/* Attendance Type Information */}
+        {/* ATTENDANCE TYPE INFORMATION */}
+
         <Grid item xs={12} md={4}>
           <Card elevation={0} sx={cardStyle}>
             <CardContent sx={{ p: 3 }}>
@@ -556,7 +594,8 @@ const Attendance = () => {
         </Grid>
       </Grid>
 
-      {/* Monthly Attendance History */}
+      {/* MONTHLY ATTENDANCE HISTORY */}
+
       <Card elevation={0} sx={cardStyle}>
         <CardContent sx={{ p: { xs: 2, md: 3 } }}>
           <Stack
@@ -653,7 +692,7 @@ const Attendance = () => {
                               ? "Absent"
                               : record.status === "Half Day"
                                 ? "Half Day"
-                                : "WFO",
+                                : record.attendanceType,
                           )}
                         />
                       </TableCell>

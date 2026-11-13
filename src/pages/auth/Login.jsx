@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { loginUser } from "../../services/authService";
+import { authService } from "../../services/authService";
 
 import {
   Box,
@@ -69,13 +69,13 @@ const Login = () => {
     try {
       setLoading(true);
 
-      // API call
-      const response = await loginUser({
+      // Login API call
+      const response = await authService.loginUser({
         email,
         password,
       });
 
-      // Support both Axios response and response.data
+      // authService returns response.data directly
       const result = response?.data ?? response;
 
       // Validate response
@@ -98,7 +98,7 @@ const Login = () => {
         throw new Error("Authentication token is missing.");
       }
 
-      // Validate user object
+      // Validate user
       if (!user || typeof user !== "object" || Array.isArray(user)) {
         throw new Error("Invalid user information received.");
       }
@@ -110,10 +110,7 @@ const Login = () => {
 
       const role = user.role.trim().toLowerCase();
 
-      // Save session
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-
+      // authService.loginUser already saves token and user
       console.log("Login successful");
       console.log("User role:", role);
 
@@ -135,7 +132,6 @@ const Login = () => {
 
       navigate("/unauthorized", { replace: true });
     } catch (err) {
-      // Extract only a safe string message
       const errorMessage =
         typeof err?.message === "string"
           ? err.message

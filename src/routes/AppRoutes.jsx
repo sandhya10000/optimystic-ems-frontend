@@ -43,9 +43,7 @@ const MyProfile = lazy(() => import("../pages/employee/MyProfile"));
 // --------------------------------------------------
 
 const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard"));
-const EmployeeManagement = lazy(
-  () => import("../pages/admin/EmployeeManagement"),
-);
+
 const EmployeeProfile = lazy(() => import("../pages/admin/EmployeeProfile"));
 const SalarySlipManagement = lazy(
   () => import("../pages/admin/SalarySlipManagement"),
@@ -112,7 +110,7 @@ const AppRoutes = () => {
 
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
-            <Route path="employees" element={<EmployeeManagement />} />
+
             <Route path="employee-profile" element={<EmployeeProfile />} />
             <Route path="salary-slips" element={<SalarySlipManagement />} />
             <Route path="assets" element={<AssetManagement />} />

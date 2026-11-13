@@ -1,346 +1,427 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Box,
-  Grid,
   Card,
   CardContent,
   Typography,
+  Grid,
   Button,
-  Stack,
-  Avatar,
-  Chip,
   TextField,
-  InputAdornment,
   MenuItem,
+  Chip,
+  Avatar,
+  IconButton,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
   TableContainer,
+  TableHead,
+  TableRow,
   Paper,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
+  Alert,
+  Stack,
+  InputAdornment,
+  Snackbar,
   Divider,
-  Tooltip,
 } from "@mui/material";
 
 import {
+  Refresh,
+  Search,
   CalendarMonth,
   People,
   CheckCircle,
   Cancel,
   AccessTime,
-  Search,
-  Download,
-  Edit,
   Visibility,
-  Add,
-  Close,
-  Schedule,
-  Business,
-  LaptopMac,
-  HomeWork,
+  FileDownload,
 } from "@mui/icons-material";
 
-const COLORS = {
-  dark: "#0B403C",
-  primary: "#0F887D",
-  orange: "#F59E0B",
-  background: "#F0F8F6",
-  white: "#FFFFFF",
-  border: "#DCEBE7",
-  text: "#174D47",
-  secondary: "#64748B",
-  red: "#DC6464",
-  blue: "#4F83CC",
+import { adminAPI } from "../../services/authService";
+
+// =====================================================
+// DATE HELPERS
+// =====================================================
+
+const getDateValue = (value) => {
+  if (!value) return "";
+
+  // API date is already YYYY-MM-DD
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 };
 
-const initialAttendance = [
-  {
-    id: 1,
-    employeeId: "EMP001",
-    employeeName: "Rahul Sharma",
-    department: "Development",
-    date: "2026-11-12",
-    checkIn: "09:15 AM",
-    checkOut: "06:10 PM",
-    workMode: "WFO",
-    status: "Present",
-  },
-  {
-    id: 2,
-    employeeId: "EMP002",
-    employeeName: "Priya Verma",
-    department: "HR",
-    date: "2026-11-12",
-    checkIn: "09:05 AM",
-    checkOut: "06:00 PM",
-    workMode: "WFO",
-    status: "Present",
-  },
-  {
-    id: 3,
-    employeeId: "EMP003",
-    employeeName: "Amit Kumar",
-    department: "Finance",
-    date: "2026-11-12",
-    checkIn: "09:45 AM",
-    checkOut: "06:15 PM",
-    workMode: "WFH",
-    status: "Late",
-  },
-  {
-    id: 4,
-    employeeId: "EMP004",
-    employeeName: "Neha Singh",
-    department: "Marketing",
-    date: "2026-11-12",
-    checkIn: "--",
-    checkOut: "--",
-    workMode: "--",
-    status: "Absent",
-  },
-  {
-    id: 5,
-    employeeId: "EMP005",
-    employeeName: "Vikas Gupta",
-    department: "Development",
-    date: "2026-11-12",
-    checkIn: "09:20 AM",
-    checkOut: "--",
-    workMode: "WFO",
-    status: "Present",
-  },
-  {
-    id: 6,
-    employeeId: "EMP006",
-    employeeName: "Anjali Singh",
-    department: "Design",
-    date: "2026-11-12",
-    checkIn: "09:10 AM",
-    checkOut: "06:05 PM",
-    workMode: "WFH",
-    status: "Present",
-  },
-  {
-    id: 7,
-    employeeId: "EMP007",
-    employeeName: "Rohit Verma",
-    department: "Sales",
-    date: "2026-11-12",
-    checkIn: "--",
-    checkOut: "--",
-    workMode: "--",
-    status: "On Leave",
-  },
-];
+// =====================================================
+// TIME FORMATTER
+// =====================================================
 
-const employeeOptions = [
-  { id: "EMP001", name: "Rahul Sharma" },
-  { id: "EMP002", name: "Priya Verma" },
-  { id: "EMP003", name: "Amit Kumar" },
-  { id: "EMP004", name: "Neha Singh" },
-  { id: "EMP005", name: "Vikas Gupta" },
-  { id: "EMP006", name: "Anjali Singh" },
-  { id: "EMP007", name: "Rohit Verma" },
-];
+const formatAttendanceTime = (value) => {
+  if (!value) return "-";
 
-const departments = [
-  "Development",
-  "HR",
-  "Finance",
-  "Marketing",
-  "Design",
-  "Sales",
-];
+  const date = new Date(value);
 
-const today = "2026-11-12";
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+// =====================================================
+// DATE FORMATTER FOR UI
+// =====================================================
+
+const formatDisplayDate = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+// =====================================================
+// EXTRACT ATTENDANCE ARRAY
+// =====================================================
+
+const extractAttendanceArray = (response) => {
+  if (Array.isArray(response)) return response;
+
+  if (Array.isArray(response?.attendance)) {
+    return response.attendance;
+  }
+
+  if (Array.isArray(response?.data?.attendance)) {
+    return response.data.attendance;
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response?.records)) {
+    return response.records;
+  }
+
+  return [];
+};
+
+// =====================================================
+// NORMALIZE ATTENDANCE API RESPONSE
+// =====================================================
+
+const normalizeAttendance = (item, index) => {
+  const employee = item?.employee || {};
+
+  const employeeName = [employee?.firstName, employee?.lastName]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    id: item?._id || item?.id || index,
+
+    employeeId: employee?.employeeId || employee?._id || `EMP-${index + 1}`,
+
+    employeeName: employeeName || "Unknown Employee",
+
+    email: employee?.email || "-",
+
+    phone: employee?.phone || "-",
+
+    department:
+      employee?.department || employee?.departmentName || "Not Assigned",
+
+    designation: employee?.designation || employee?.role || "-",
+
+    date: getDateValue(item?.date || item?.createdAt),
+
+    checkIn: formatAttendanceTime(item?.checkIn),
+
+    checkOut: formatAttendanceTime(item?.checkOut),
+
+    status: item?.status || "Pending",
+
+    workMode: item?.attendanceType || "Office",
+
+    checkInIp: item?.checkInIp || "-",
+
+    checkOutIp: item?.checkOutIp || "-",
+
+    raw: item,
+  };
+};
+
+// =====================================================
+// STATUS COLORS
+// =====================================================
+
+const getStatusColor = (status) => {
+  const value = String(status || "").toLowerCase();
+
+  if (value === "present" || value === "approved") {
+    return "success";
+  }
+
+  if (value === "absent" || value === "rejected") {
+    return "error";
+  }
+
+  if (value === "late") {
+    return "warning";
+  }
+
+  if (value === "half day" || value === "half-day") {
+    return "info";
+  }
+
+  return "default";
+};
+
+// =====================================================
+// WORK MODE COLORS
+// =====================================================
+
+const getWorkModeColor = (mode) => {
+  const value = String(mode || "").toUpperCase();
+
+  if (value === "WFH") return "info";
+
+  if (value === "WFO" || value === "OFFICE") {
+    return "success";
+  }
+
+  return "default";
+};
+
+// =====================================================
+// MAIN COMPONENT
+// =====================================================
 
 const AttendanceManagement = () => {
-  const [attendance, setAttendance] = useState(initialAttendance);
+  // Attendance states
+  const [attendance, setAttendance] = useState([]);
 
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState("");
+
+  // Filter states
   const [search, setSearch] = useState("");
-  const [selectedDate, setSelectedDate] = useState(today);
+
+  // Empty date means show all records
+  const [selectedDate, setSelectedDate] = useState("");
+
   const [statusFilter, setStatusFilter] = useState("All");
+
   const [departmentFilter, setDepartmentFilter] = useState("All");
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState(null);
+  const [workModeFilter, setWorkModeFilter] = useState("All");
 
-  const [form, setForm] = useState({
-    employeeId: "",
-    date: today,
-    checkIn: "",
-    checkOut: "",
-    workMode: "WFO",
-    status: "Present",
+  // Details dialog
+  const [selectedAttendance, setSelectedAttendance] = useState(null);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Snackbar
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
   });
 
-  const stats = useMemo(() => {
-    const dayRecords = attendance.filter((item) => item.date === selectedDate);
+  // ===================================================
+  // GET ALL ATTENDANCE API
+  // ===================================================
 
-    return [
-      {
-        title: "Total Employees",
-        value: employeeOptions.length,
-        icon: <People />,
-        color: COLORS.primary,
-        bg: "#E5F4F0",
-      },
-      {
-        title: "Present",
-        value: dayRecords.filter((item) =>
-          ["Present", "Late"].includes(item.status),
-        ).length,
-        icon: <CheckCircle />,
-        color: "#27966E",
-        bg: "#E5F5EC",
-      },
-      {
-        title: "Absent",
-        value: dayRecords.filter((item) => item.status === "Absent").length,
-        icon: <Cancel />,
-        color: COLORS.red,
-        bg: "#FCEAEA",
-      },
-      {
-        title: "Late Arrivals",
-        value: dayRecords.filter((item) => item.status === "Late").length,
-        icon: <AccessTime />,
-        color: COLORS.orange,
-        bg: "#FFF4DD",
-      },
-    ];
-  }, [attendance, selectedDate]);
+  const fetchAttendance = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await adminAPI.getAllAttendance();
+
+      console.log("Attendance API Response:", response);
+
+      const records = extractAttendanceArray(response);
+
+      console.log("Attendance Records:", records);
+
+      const normalizedRecords = records.map((item, index) =>
+        normalizeAttendance(item, index),
+      );
+
+      console.log("Normalized Attendance Records:", normalizedRecords);
+
+      setAttendance(normalizedRecords);
+    } catch (err) {
+      console.error("Attendance API Error:", err);
+
+      setError(err?.message || "Unable to fetch attendance records.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ===================================================
+  // INITIAL API CALL
+  // ===================================================
+
+  useEffect(() => {
+    fetchAttendance();
+  }, [fetchAttendance]);
+
+  // ===================================================
+  // DEPARTMENT OPTIONS
+  // ===================================================
+
+  const departments = useMemo(() => {
+    const departmentList = attendance
+      .map((item) => item.department)
+      .filter((department) => department && department !== "Not Assigned");
+
+    return ["All", ...new Set(departmentList)];
+  }, [attendance]);
+
+  // ===================================================
+  // FILTER ATTENDANCE
+  // ===================================================
 
   const filteredAttendance = useMemo(() => {
     return attendance.filter((item) => {
-      const searchText = search.toLowerCase();
+      const searchValue = search.toLowerCase();
 
       const matchesSearch =
-        item.employeeName.toLowerCase().includes(searchText) ||
-        item.employeeId.toLowerCase().includes(searchText);
+        item.employeeName.toLowerCase().includes(searchValue) ||
+        String(item.employeeId).toLowerCase().includes(searchValue) ||
+        item.email.toLowerCase().includes(searchValue) ||
+        item.phone.toLowerCase().includes(searchValue);
 
-      const matchesDate = item.date === selectedDate;
+      const matchesDate = !selectedDate || item.date === selectedDate;
 
       const matchesStatus =
-        statusFilter === "All" || item.status === statusFilter;
+        statusFilter === "All" ||
+        item.status.toLowerCase() === statusFilter.toLowerCase();
 
       const matchesDepartment =
         departmentFilter === "All" || item.department === departmentFilter;
 
-      return matchesSearch && matchesDate && matchesStatus && matchesDepartment;
+      const matchesWorkMode =
+        workModeFilter === "All" ||
+        item.workMode.toLowerCase() === workModeFilter.toLowerCase();
+
+      return (
+        matchesSearch &&
+        matchesDate &&
+        matchesStatus &&
+        matchesDepartment &&
+        matchesWorkMode
+      );
     });
-  }, [attendance, search, selectedDate, statusFilter, departmentFilter]);
+  }, [
+    attendance,
+    search,
+    selectedDate,
+    statusFilter,
+    departmentFilter,
+    workModeFilter,
+  ]);
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case "Present":
-        return { bg: "#E5F5EC", color: "#27966E" };
-      case "Absent":
-        return { bg: "#FCEAEA", color: COLORS.red };
-      case "Late":
-        return { bg: "#FFF4DD", color: "#C08014" };
-      case "On Leave":
-        return { bg: "#EAF1FC", color: COLORS.blue };
-      default:
-        return { bg: "#F1F5F9", color: COLORS.secondary };
-    }
+  // ===================================================
+  // ATTENDANCE STATISTICS
+  // ===================================================
+
+  const stats = useMemo(() => {
+    const present = filteredAttendance.filter(
+      (item) => item.status.toLowerCase() === "present",
+    ).length;
+
+    const absent = filteredAttendance.filter(
+      (item) => item.status.toLowerCase() === "absent",
+    ).length;
+
+    const late = filteredAttendance.filter(
+      (item) => item.status.toLowerCase() === "late",
+    ).length;
+
+    const checkedOut = filteredAttendance.filter(
+      (item) => item.checkOut !== "-",
+    ).length;
+
+    return {
+      total: filteredAttendance.length,
+      present,
+      absent,
+      late,
+      checkedOut,
+    };
+  }, [filteredAttendance]);
+
+  // ===================================================
+  // VIEW ATTENDANCE DETAILS
+  // ===================================================
+
+  const handleView = (item) => {
+    setSelectedAttendance(item);
+    setDetailsOpen(true);
   };
 
-  const openAddDialog = () => {
-    setEditingRecord(null);
+  // ===================================================
+  // RESET FILTERS
+  // ===================================================
 
-    setForm({
-      employeeId: "",
-      date: selectedDate,
-      checkIn: "",
-      checkOut: "",
-      workMode: "WFO",
-      status: "Present",
-    });
-
-    setDialogOpen(true);
+  const handleResetFilters = () => {
+    setSearch("");
+    setSelectedDate("");
+    setStatusFilter("All");
+    setDepartmentFilter("All");
+    setWorkModeFilter("All");
   };
 
-  const openEditDialog = (record) => {
-    setEditingRecord(record);
+  // ===================================================
+  // EXPORT CSV
+  // ===================================================
 
-    setForm({
-      employeeId: record.employeeId,
-      date: record.date,
-      checkIn: record.checkIn === "--" ? "" : record.checkIn,
-      checkOut: record.checkOut === "--" ? "" : record.checkOut,
-      workMode: record.workMode === "--" ? "WFO" : record.workMode,
-      status: record.status,
-    });
+  const exportCSV = () => {
+    if (!filteredAttendance.length) {
+      setSnackbar({
+        open: true,
+        message: "No attendance records available to export.",
+      });
 
-    setDialogOpen(true);
-  };
-
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSaveAttendance = () => {
-    if (!form.employeeId || !form.date || !form.status) return;
-
-    const employee = employeeOptions.find(
-      (item) => item.id === form.employeeId,
-    );
-
-    if (!employee) return;
-
-    const existingRecord = attendance.find(
-      (item) =>
-        item.employeeId === form.employeeId &&
-        item.date === form.date &&
-        item.id !== editingRecord?.id,
-    );
-
-    if (existingRecord) {
-      alert("Attendance already exists for this employee on this date.");
       return;
     }
 
-    const record = {
-      id: editingRecord?.id || Date.now(),
-      employeeId: employee.id,
-      employeeName: employee.name,
-      department: editingRecord?.department || departments[0],
-      date: form.date,
-      checkIn: form.checkIn || "--",
-      checkOut: form.checkOut || "--",
-      workMode: form.workMode || "--",
-      status: form.status,
-    };
-
-    if (editingRecord) {
-      setAttendance((prev) =>
-        prev.map((item) => (item.id === editingRecord.id ? record : item)),
-      );
-    } else {
-      setAttendance((prev) => [record, ...prev]);
-    }
-
-    setDialogOpen(false);
-  };
-
-  const handleExport = () => {
     const headers = [
       "Employee ID",
       "Employee Name",
+      "Email",
+      "Phone",
       "Department",
+      "Designation",
       "Date",
       "Check In",
       "Check Out",
@@ -351,7 +432,10 @@ const AttendanceManagement = () => {
     const rows = filteredAttendance.map((item) => [
       item.employeeId,
       item.employeeName,
+      item.email,
+      item.phone,
       item.department,
+      item.designation,
       item.date,
       item.checkIn,
       item.checkOut,
@@ -359,35 +443,98 @@ const AttendanceManagement = () => {
       item.status,
     ]);
 
-    const csv = [headers, ...rows]
+    const csvContent = [headers, ...rows]
       .map((row) =>
-        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
+        row
+          .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
+          .join(","),
       )
       .join("\n");
 
-    const blob = new Blob([csv], {
+    const blob = new Blob(["\uFEFF" + csvContent], {
       type: "text/csv;charset=utf-8;",
     });
 
     const url = URL.createObjectURL(blob);
+
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `attendance-${selectedDate}.csv`;
+
+    link.download = `attendance-${selectedDate || "all"}.csv`;
+
+    document.body.appendChild(link);
+
     link.click();
 
+    document.body.removeChild(link);
+
     URL.revokeObjectURL(url);
+
+    setSnackbar({
+      open: true,
+      message: "Attendance CSV exported successfully.",
+    });
   };
+
+  // ===================================================
+  // STAT CARD COMPONENT
+  // ===================================================
+
+  const StatCard = ({ title, value, icon, color }) => (
+    <Card
+      sx={{
+        height: "100%",
+        borderRadius: 3,
+        border: "1px solid #e5e7eb",
+        boxShadow: "none",
+      }}
+    >
+      <CardContent>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box>
+            <Typography color="text.secondary" fontSize={14}>
+              {title}
+            </Typography>
+
+            <Typography variant="h4" fontWeight={700} sx={{ mt: 1 }}>
+              {value}
+            </Typography>
+          </Box>
+
+          <Avatar
+            sx={{
+              bgcolor: `${color}18`,
+              color,
+              width: 52,
+              height: 52,
+            }}
+          >
+            {icon}
+          </Avatar>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+
+  // ===================================================
+  // RENDER UI
+  // ===================================================
 
   return (
     <Box
       sx={{
         p: { xs: 2, md: 3 },
-        minHeight: "calc(100vh - 70px)",
-        bgcolor: COLORS.background,
+        bgcolor: "#f8fafc",
+        minHeight: "100vh",
       }}
     >
-      {/* Header */}
+      {/* HEADER */}
+
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
@@ -396,150 +543,125 @@ const AttendanceManagement = () => {
         mb={3}
       >
         <Box>
-          <Typography variant="h5" fontWeight={800} color={COLORS.dark}>
+          <Typography variant="h5" fontWeight={700}>
             Attendance Management
           </Typography>
 
-          <Typography fontSize={13} color={COLORS.secondary} mt={0.5}>
+          <Typography color="text.secondary" fontSize={14} mt={0.5}>
             Monitor and manage employee attendance records.
           </Typography>
         </Box>
 
-        <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Stack direction="row" spacing={1}>
           <Button
             variant="outlined"
-            startIcon={<Download />}
-            onClick={handleExport}
-            sx={{
-              borderColor: COLORS.primary,
-              color: COLORS.primary,
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 700,
-            }}
+            startIcon={<Refresh />}
+            onClick={fetchAttendance}
+            disabled={loading}
           >
-            Export CSV
+            Refresh
           </Button>
 
           <Button
             variant="contained"
-            startIcon={<Add />}
-            onClick={openAddDialog}
-            sx={{
-              bgcolor: COLORS.primary,
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 700,
-              boxShadow: "none",
-              "&:hover": { bgcolor: COLORS.dark, boxShadow: "none" },
-            }}
+            startIcon={<FileDownload />}
+            onClick={exportCSV}
           >
-            Mark Attendance
+            Export CSV
           </Button>
         </Stack>
       </Stack>
 
-      {/* Statistics */}
-      <Grid container spacing={2.5} mb={3}>
-        {stats.map((item) => (
-          <Grid item xs={12} sm={6} lg={3} key={item.title}>
-            <Card
-              elevation={0}
-              sx={{
-                border: `1px solid ${COLORS.border}`,
-                borderRadius: 3,
-                height: "100%",
-              }}
-            >
-              <CardContent sx={{ p: 2.5 }}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Box>
-                    <Typography
-                      fontSize={13}
-                      color={COLORS.secondary}
-                      fontWeight={600}
-                    >
-                      {item.title}
-                    </Typography>
+      {/* ERROR */}
 
-                    <Typography
-                      variant="h4"
-                      fontWeight={800}
-                      color={COLORS.dark}
-                      mt={1}
-                    >
-                      {item.value}
-                    </Typography>
-                  </Box>
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 3 }}
+          action={
+            <Button color="inherit" size="small" onClick={fetchAttendance}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
 
-                  <Avatar
-                    sx={{
-                      bgcolor: item.bg,
-                      color: item.color,
-                      width: 48,
-                      height: 48,
-                    }}
-                  >
-                    {item.icon}
-                  </Avatar>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+      {/* STATISTICS */}
+
+      <Grid container spacing={2} mb={3}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Total Records"
+            value={stats.total}
+            icon={<People />}
+            color="#2563eb"
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Present"
+            value={stats.present}
+            icon={<CheckCircle />}
+            color="#16a34a"
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Absent"
+            value={stats.absent}
+            icon={<Cancel />}
+            color="#dc2626"
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Late"
+            value={stats.late}
+            icon={<AccessTime />}
+            color="#d97706"
+          />
+        </Grid>
       </Grid>
 
-      {/* Filters and Attendance Table */}
+      {/* FILTERS */}
+
       <Card
-        elevation={0}
         sx={{
-          border: `1px solid ${COLORS.border}`,
           borderRadius: 3,
+          border: "1px solid #e5e7eb",
+          boxShadow: "none",
+          mb: 3,
         }}
       >
-        <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+        <CardContent>
           <Stack
-            direction={{ xs: "column", md: "row" }}
+            direction="row"
+            alignItems="center"
             justifyContent="space-between"
-            alignItems={{ xs: "flex-start", md: "center" }}
-            spacing={2}
-            mb={2.5}
+            mb={2}
           >
-            <Box>
-              <Typography fontSize={17} fontWeight={800} color={COLORS.dark}>
-                Daily Attendance Records
-              </Typography>
+            <Typography fontWeight={600}>Filter Attendance</Typography>
 
-              <Typography fontSize={12} color={COLORS.secondary} mt={0.5}>
-                Employee check-in and check-out details
-              </Typography>
-            </Box>
+            <Button size="small" onClick={handleResetFilters}>
+              Reset Filters
+            </Button>
+          </Stack>
 
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1.2}
-              width={{ xs: "100%", md: "auto" }}
-            >
+          <Grid container spacing={2}>
+            {/* SEARCH */}
+
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
-                type="date"
-                size="small"
-                label="Attendance Date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: 165 }}
-              />
-
-              <TextField
+                fullWidth
                 size="small"
                 placeholder="Search employee..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                sx={{ minWidth: 210 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -548,67 +670,146 @@ const AttendanceManagement = () => {
                   ),
                 }}
               />
+            </Grid>
 
+            {/* DATE */}
+
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                label="Attendance Date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CalendarMonth fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+
+            {/* STATUS */}
+
+            <Grid item xs={12} sm={6} md={2}>
               <TextField
                 select
+                fullWidth
+                size="small"
+                label="Status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                {["All", "Present", "Absent", "Late", "Pending"].map(
+                  (status) => (
+                    <MenuItem key={status} value={status}>
+                      {status}
+                    </MenuItem>
+                  ),
+                )}
+              </TextField>
+            </Grid>
+
+            {/* DEPARTMENT */}
+
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                select
+                fullWidth
                 size="small"
                 label="Department"
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                sx={{ minWidth: 140 }}
               >
-                <MenuItem value="All">All Departments</MenuItem>
                 {departments.map((department) => (
                   <MenuItem key={department} value={department}>
                     {department}
                   </MenuItem>
                 ))}
               </TextField>
+            </Grid>
 
+            {/* WORK MODE */}
+
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 select
+                fullWidth
                 size="small"
-                label="Status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                sx={{ minWidth: 130 }}
+                label="Work Mode"
+                value={workModeFilter}
+                onChange={(e) => setWorkModeFilter(e.target.value)}
               >
-                <MenuItem value="All">All Status</MenuItem>
-                <MenuItem value="Present">Present</MenuItem>
-                <MenuItem value="Absent">Absent</MenuItem>
-                <MenuItem value="Late">Late</MenuItem>
-                <MenuItem value="On Leave">On Leave</MenuItem>
+                {["All", "Office", "WFH", "WFO"].map((mode) => (
+                  <MenuItem key={mode} value={mode}>
+                    {mode}
+                  </MenuItem>
+                ))}
               </TextField>
-            </Stack>
-          </Stack>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* ATTENDANCE TABLE */}
+
+      <Card
+        sx={{
+          borderRadius: 3,
+          border: "1px solid #e5e7eb",
+          boxShadow: "none",
+        }}
+      >
+        <CardContent sx={{ p: 0 }}>
+          <Box
+            p={2}
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Box>
+              <Typography fontWeight={700}>Attendance Records</Typography>
+
+              <Typography variant="caption" color="text.secondary">
+                Employee attendance details
+              </Typography>
+            </Box>
+
+            <Chip
+              label={`${filteredAttendance.length} Records`}
+              color="primary"
+              variant="outlined"
+            />
+          </Box>
+
+          <Divider />
 
           <TableContainer
             component={Paper}
             elevation={0}
-            sx={{
-              border: `1px solid ${COLORS.border}`,
-              borderRadius: 2,
-              overflowX: "auto",
-            }}
+            sx={{ width: "100%", overflowX: "auto" }}
           >
-            <Table sx={{ minWidth: 900 }}>
+            <Table sx={{ minWidth: 950 }}>
               <TableHead>
-                <TableRow sx={{ bgcolor: "#F5FAF8" }}>
+                <TableRow sx={{ bgcolor: "#f8fafc" }}>
                   {[
                     "Employee",
                     "Department",
+                    "Date",
                     "Check In",
                     "Check Out",
                     "Work Mode",
                     "Status",
-                    "Actions",
+                    "Action",
                   ].map((heading) => (
                     <TableCell
                       key={heading}
                       sx={{
-                        color: COLORS.dark,
-                        fontWeight: 800,
-                        fontSize: 12,
+                        fontWeight: 700,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -619,333 +820,287 @@ const AttendanceManagement = () => {
               </TableHead>
 
               <TableBody>
-                {filteredAttendance.length > 0 ? (
-                  filteredAttendance.map((record) => {
-                    const statusStyle = getStatusStyle(record.status);
-
-                    return (
-                      <TableRow
-                        key={record.id}
-                        hover
-                        sx={{
-                          "& td": {
-                            borderColor: COLORS.border,
-                            py: 1.5,
-                          },
-                        }}
-                      >
-                        <TableCell>
-                          <Stack
-                            direction="row"
-                            alignItems="center"
-                            spacing={1.2}
-                          >
-                            <Avatar
-                              sx={{
-                                bgcolor: "#E5F4F0",
-                                color: COLORS.primary,
-                                width: 38,
-                                height: 38,
-                                fontSize: 12,
-                                fontWeight: 700,
-                              }}
-                            >
-                              {record.employeeName
-                                .split(" ")
-                                .map((word) => word[0])
-                                .join("")}
-                            </Avatar>
-
-                            <Box>
-                              <Typography
-                                fontSize={12.5}
-                                fontWeight={700}
-                                color={COLORS.dark}
-                              >
-                                {record.employeeName}
-                              </Typography>
-
-                              <Typography
-                                fontSize={10.5}
-                                color={COLORS.secondary}
-                              >
-                                {record.employeeId}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        </TableCell>
-
-                        <TableCell>
-                          <Typography fontSize={12}>
-                            {record.department}
-                          </Typography>
-                        </TableCell>
-
-                        <TableCell>
-                          <Typography
-                            fontSize={12}
-                            fontWeight={600}
-                            color={COLORS.text}
-                          >
-                            {record.checkIn}
-                          </Typography>
-                        </TableCell>
-
-                        <TableCell>
-                          <Typography
-                            fontSize={12}
-                            fontWeight={600}
-                            color={COLORS.text}
-                          >
-                            {record.checkOut}
-                          </Typography>
-                        </TableCell>
-
-                        <TableCell>
-                          {record.workMode === "WFO" ? (
-                            <Chip
-                              icon={<Business />}
-                              label="WFO"
-                              size="small"
-                              sx={{
-                                bgcolor: "#E5F4F0",
-                                color: COLORS.primary,
-                                fontWeight: 700,
-                              }}
-                            />
-                          ) : record.workMode === "WFH" ? (
-                            <Chip
-                              icon={<HomeWork />}
-                              label="WFH"
-                              size="small"
-                              sx={{
-                                bgcolor: "#EAF1FC",
-                                color: COLORS.blue,
-                                fontWeight: 700,
-                              }}
-                            />
-                          ) : (
-                            <Typography fontSize={12} color={COLORS.secondary}>
-                              --
-                            </Typography>
-                          )}
-                        </TableCell>
-
-                        <TableCell>
-                          <Chip
-                            label={record.status}
-                            size="small"
-                            sx={{
-                              bgcolor: statusStyle.bg,
-                              color: statusStyle.color,
-                              fontWeight: 700,
-                              fontSize: 10,
-                            }}
-                          />
-                        </TableCell>
-
-                        <TableCell>
-                          <Stack direction="row" spacing={0.5}>
-                            <Tooltip title="Edit Attendance">
-                              <IconButton
-                                size="small"
-                                onClick={() => openEditDialog(record)}
-                                sx={{ color: COLORS.primary }}
-                              >
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => openEditDialog(record)}
-                                sx={{ color: COLORS.blue }}
-                              >
-                                <Visibility fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                      <CalendarMonth
-                        sx={{ fontSize: 42, color: "#A0B8B1", mb: 1 }}
-                      />
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                      <CircularProgress size={30} />
 
-                      <Typography fontWeight={700} color={COLORS.dark}>
-                        No attendance records found
-                      </Typography>
-
-                      <Typography
-                        fontSize={12}
-                        color={COLORS.secondary}
-                        mt={0.5}
-                      >
-                        Try changing the selected date or filters.
+                      <Typography color="text.secondary" mt={1}>
+                        Loading attendance records...
                       </Typography>
                     </TableCell>
                   </TableRow>
+                ) : filteredAttendance.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                      <People
+                        sx={{
+                          fontSize: 40,
+                          color: "#94a3b8",
+                          mb: 1,
+                        }}
+                      />
+
+                      <Typography color="text.secondary" fontWeight={600}>
+                        No attendance records found.
+                      </Typography>
+
+                      <Typography color="text.secondary" variant="caption">
+                        Try changing your filters or refresh the data.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredAttendance.map((item) => (
+                    <TableRow hover key={item.id}>
+                      {/* EMPLOYEE */}
+
+                      <TableCell>
+                        <Stack
+                          direction="row"
+                          spacing={1.5}
+                          alignItems="center"
+                        >
+                          <Avatar
+                            sx={{
+                              bgcolor: "#dbeafe",
+                              color: "#1d4ed8",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {item.employeeName.charAt(0).toUpperCase()}
+                          </Avatar>
+
+                          <Box>
+                            <Typography
+                              fontWeight={600}
+                              fontSize={14}
+                              sx={{ whiteSpace: "nowrap" }}
+                            >
+                              {item.employeeName}
+                            </Typography>
+
+                            <Typography fontSize={12} color="text.secondary">
+                              {item.employeeId}
+                            </Typography>
+
+                            <Typography fontSize={11} color="text.secondary">
+                              {item.email}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </TableCell>
+
+                      {/* DEPARTMENT */}
+
+                      <TableCell>
+                        <Typography fontSize={13}>{item.department}</Typography>
+                      </TableCell>
+
+                      {/* DATE */}
+
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {formatDisplayDate(item.date)}
+                      </TableCell>
+
+                      {/* CHECK IN */}
+
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <Typography
+                          fontSize={13}
+                          fontWeight={600}
+                          color="success.main"
+                        >
+                          {item.checkIn}
+                        </Typography>
+                      </TableCell>
+
+                      {/* CHECK OUT */}
+
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <Typography
+                          fontSize={13}
+                          fontWeight={600}
+                          color={
+                            item.checkOut === "-"
+                              ? "text.secondary"
+                              : "error.main"
+                          }
+                        >
+                          {item.checkOut}
+                        </Typography>
+                      </TableCell>
+
+                      {/* WORK MODE */}
+
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={item.workMode}
+                          color={getWorkModeColor(item.workMode)}
+                          variant="outlined"
+                        />
+                      </TableCell>
+
+                      {/* STATUS */}
+
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={item.status}
+                          color={getStatusColor(item.status)}
+                        />
+                      </TableCell>
+
+                      {/* ACTION */}
+
+                      <TableCell>
+                        <IconButton
+                          color="primary"
+                          onClick={() => handleView(item)}
+                          size="small"
+                          title="View Attendance Details"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
           </TableContainer>
-
-          <Typography fontSize={11} color={COLORS.secondary} mt={2}>
-            Showing {filteredAttendance.length} attendance records
-          </Typography>
         </CardContent>
       </Card>
 
-      {/* Mark / Edit Attendance Dialog */}
+      {/* ATTENDANCE DETAILS DIALOG */}
+
       <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        fullWidth
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
         maxWidth="sm"
+        fullWidth
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 800,
-            color: COLORS.dark,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          {editingRecord ? "Edit Attendance" : "Mark Attendance"}
+        <DialogTitle fontWeight={700}>Attendance Details</DialogTitle>
 
-          <IconButton onClick={() => setDialogOpen(false)}>
-            <Close />
-          </IconButton>
-        </DialogTitle>
+        <DialogContent dividers>
+          {selectedAttendance && (
+            <Box>
+              {/* EMPLOYEE HEADER */}
 
-        <Divider />
+              <Stack direction="row" spacing={2} alignItems="center" mb={3}>
+                <Avatar
+                  sx={{
+                    width: 55,
+                    height: 55,
+                    bgcolor: "#dbeafe",
+                    color: "#1d4ed8",
+                    fontSize: 22,
+                    fontWeight: 700,
+                  }}
+                >
+                  {selectedAttendance.employeeName.charAt(0).toUpperCase()}
+                </Avatar>
 
-        <DialogContent sx={{ pt: 3 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Select Employee"
-                name="employeeId"
-                value={form.employeeId}
-                onChange={handleFormChange}
-                disabled={Boolean(editingRecord)}
-              >
-                {employeeOptions.map((employee) => (
-                  <MenuItem key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.id})
-                  </MenuItem>
+                <Box>
+                  <Typography fontWeight={700}>
+                    {selectedAttendance.employeeName}
+                  </Typography>
+
+                  <Typography color="text.secondary" fontSize={13}>
+                    {selectedAttendance.employeeId}
+                  </Typography>
+
+                  <Typography color="text.secondary" fontSize={12}>
+                    {selectedAttendance.email}
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Divider sx={{ mb: 2 }} />
+
+              {/* DETAILS */}
+
+              <Grid container spacing={2}>
+                {[
+                  ["Employee Name", selectedAttendance.employeeName],
+                  ["Employee ID", selectedAttendance.employeeId],
+                  ["Email", selectedAttendance.email],
+                  ["Phone", selectedAttendance.phone],
+                  ["Department", selectedAttendance.department],
+                  ["Designation", selectedAttendance.designation],
+                  [
+                    "Attendance Date",
+                    formatDisplayDate(selectedAttendance.date),
+                  ],
+                  ["Check In", selectedAttendance.checkIn],
+                  ["Check Out", selectedAttendance.checkOut],
+                  ["Work Mode", selectedAttendance.workMode],
+                  ["Status", selectedAttendance.status],
+                  ["Check In IP", selectedAttendance.checkInIp],
+                  ["Check Out IP", selectedAttendance.checkOutIp],
+                ].map(([label, value]) => (
+                  <Grid item xs={12} sm={6} key={label}>
+                    <Typography fontSize={12} color="text.secondary">
+                      {label}
+                    </Typography>
+
+                    <Typography
+                      fontWeight={600}
+                      fontSize={14}
+                      mt={0.5}
+                      sx={{ wordBreak: "break-word" }}
+                    >
+                      {value || "-"}
+                    </Typography>
+                  </Grid>
                 ))}
-              </TextField>
-            </Grid>
+              </Grid>
 
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                type="date"
-                size="small"
-                label="Attendance Date"
-                name="date"
-                value={form.date}
-                onChange={handleFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
+              {/* STATUS CHIPS */}
 
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Attendance Status"
-                name="status"
-                value={form.status}
-                onChange={handleFormChange}
+              <Stack
+                direction="row"
+                spacing={1}
+                mt={3}
+                flexWrap="wrap"
+                useFlexGap
               >
-                <MenuItem value="Present">Present</MenuItem>
-                <MenuItem value="Absent">Absent</MenuItem>
-                <MenuItem value="Late">Late</MenuItem>
-                <MenuItem value="On Leave">On Leave</MenuItem>
-              </TextField>
-            </Grid>
+                <Chip
+                  label={selectedAttendance.status}
+                  color={getStatusColor(selectedAttendance.status)}
+                />
 
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                type="time"
-                size="small"
-                label="Check In Time"
-                name="checkIn"
-                value={form.checkIn}
-                onChange={handleFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                type="time"
-                size="small"
-                label="Check Out Time"
-                name="checkOut"
-                value={form.checkOut}
-                onChange={handleFormChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Work Mode"
-                name="workMode"
-                value={form.workMode}
-                onChange={handleFormChange}
-              >
-                <MenuItem value="WFO">Work From Office</MenuItem>
-                <MenuItem value="WFH">Work From Home</MenuItem>
-              </TextField>
-            </Grid>
-          </Grid>
+                <Chip
+                  label={selectedAttendance.workMode}
+                  color={getWorkModeColor(selectedAttendance.workMode)}
+                  variant="outlined"
+                />
+              </Stack>
+            </Box>
+          )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button
-            onClick={() => setDialogOpen(false)}
-            sx={{
-              color: COLORS.secondary,
-              textTransform: "none",
-            }}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            onClick={handleSaveAttendance}
-            disabled={!form.employeeId || !form.date}
-            sx={{
-              bgcolor: COLORS.primary,
-              textTransform: "none",
-              fontWeight: 700,
-              "&:hover": { bgcolor: COLORS.dark },
-            }}
-          >
-            {editingRecord ? "Update Attendance" : "Save Attendance"}
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setDetailsOpen(false)} variant="outlined">
+            Close
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* SNACKBAR */}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() =>
+          setSnackbar((prev) => ({
+            ...prev,
+            open: false,
+          }))
+        }
+        message={snackbar.message}
+      />
     </Box>
   );
 };
