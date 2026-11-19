@@ -332,6 +332,42 @@ export const employeeAPI = {
     }
   },
 };
+
+export const kycAPI = {
+  // ======================================
+  // GET PAN VERIFICATION HISTORY
+  // ======================================
+  panKyc: async () => {
+    try {
+      const response = await api.get("/kyc/pan/history");
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // ======================================
+  // VERIFY PAN
+  // ======================================
+  panVerify: async (data) => {
+    try {
+      const response = await api.post("/kyc/pan/verify", data);
+
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  generateDigilockerLink: async (data) => {
+    try {
+      const response = await api.post("/kyc/digilocker/generate-link", data);
+
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
 export const salarySlipAPI = {
   // ========================================
   // SALARY SLIP APIs

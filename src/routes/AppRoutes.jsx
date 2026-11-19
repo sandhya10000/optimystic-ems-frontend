@@ -17,6 +17,8 @@ const PublicLayout = lazy(() => import("../layouts/PublicLayout"));
 // --------------------------------------------------
 
 const Login = lazy(() => import("../pages/auth/Login"));
+const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("../pages/auth/ResetPassword"));
 const Signup = lazy(() => import("../pages/auth/Signup"));
 const Home = lazy(() => import("../pages/Home"));
 
@@ -33,10 +35,14 @@ const Attendance = lazy(
 
 const Asset = lazy(() => import("../pages/employee/assets/Asset"));
 
-const Kyc = lazy(() => import("../pages/employee/kyc/Kyc"));
+const Kyc = lazy(() => import("../pages/employee/kyc/PanVerification"));
 
 const Payroll = lazy(() => import("../pages/employee/payroll/Payroll"));
 const MyProfile = lazy(() => import("../pages/employee/MyProfile"));
+const PanVerification = lazy(
+  () => import("../pages/employee/kyc/PanVerification"),
+);
+const DigilockerKyc = lazy(() => import("../pages/employee/kyc/DigilockerKyc"));
 
 // --------------------------------------------------
 // ADMIN PAGES
@@ -89,6 +95,8 @@ const AppRoutes = () => {
           <Route path="/" element={<Home />} />
 
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route path="/signup" element={<Signup />} />
 
@@ -121,7 +129,6 @@ const AppRoutes = () => {
 
           <Route path="/employee" element={<EmployeeLayout />}>
             <Route index element={<EmployeeDashboard />} />
-            <Route path="kyc" element={<Kyc />} />
 
             <Route path="profile" element={<MyProfile />} />
 
@@ -130,6 +137,12 @@ const AppRoutes = () => {
             <Route path="assets" element={<Asset />} />
 
             <Route path="payslips" element={<Payroll />} />
+
+            <Route path="kyc">
+              <Route path="pan-verification" element={<PanVerification />} />
+
+              <Route path="aadhaar-verification" element={<DigilockerKyc />} />
+            </Route>
           </Route>
         </Route>
 

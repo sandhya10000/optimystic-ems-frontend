@@ -8,7 +8,6 @@ import {
   CardContent,
   Chip,
   Avatar,
-  Divider,
 } from "@mui/material";
 
 // MUI Icons - Individual imports
@@ -81,13 +80,6 @@ const steps = [
     description:
       "Manage daily HR work, payroll and reports from a single dashboard.",
   },
-];
-
-const stats = [
-  { value: "[00K+]", label: "Employees managed" },
-  { value: "[000+]", label: "Companies onboard" },
-  { value: "[00%]", label: "Time saved on HR tasks" },
-  { value: "[0.0/5]", label: "Customer rating" },
 ];
 
 const Home = () => {
@@ -571,85 +563,6 @@ const Home = () => {
                 </Typography>
               </Box>
             ))}
-          </Box>
-        </Container>
-      </Box>
-
-      {/* STATISTICS & TESTIMONIAL */}
-      <Box id="customers" sx={{ py: { xs: 7, md: 10 } }}>
-        <Container maxWidth="xl">
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                md: "1fr 1fr",
-              },
-              gap: 4,
-              alignItems: "stretch",
-            }}
-          >
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: 2,
-              }}
-            >
-              {stats.map((stat) => (
-                <Card
-                  key={stat.label}
-                  variant="outlined"
-                  sx={{
-                    borderRadius: 3,
-                    borderColor: "#e0e9ee",
-                  }}
-                >
-                  <CardContent sx={{ p: 2.5 }}>
-                    <Typography fontSize={29} fontWeight={800} color="#0e8278">
-                      {stat.value}
-                    </Typography>
-
-                    <Typography fontSize={12} color="text.secondary">
-                      {stat.label}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-
-            <Box
-              sx={{
-                bgcolor: "#f1f8f7",
-                borderRadius: 4,
-                p: { xs: 3, md: 4 },
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-              }}
-            >
-              <Typography fontSize={36} fontWeight={800} color="#f59e0b">
-                “
-              </Typography>
-
-              <Typography fontSize={18} lineHeight={1.7} color="#103f3d" mb={3}>
-                [Customer testimonial about how EMS helped their team save time
-                and stay organised.]
-              </Typography>
-
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Avatar sx={{ bgcolor: "#0e8278" }}>AB</Avatar>
-
-                <Box>
-                  <Typography fontWeight={800} fontSize={13}>
-                    [Customer name]
-                  </Typography>
-                  <Typography fontSize={11} color="text.secondary">
-                    [Role, Company]
-                  </Typography>
-                </Box>
-              </Stack>
-            </Box>
           </Box>
         </Container>
       </Box>

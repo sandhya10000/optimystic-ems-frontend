@@ -6,42 +6,17 @@ import {
   TextField,
   Button,
   Alert,
-  CircularProgress,
 } from "@mui/material";
 import { Link } from "react-router-dom";
-import axios from "axios";
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setMessage("");
-    setError("");
 
-    try {
-      setLoading(true);
-
-      const response = await axios.post(`${API_URL}/auth/forgot-password`, {
-        email,
-      });
-
-      setMessage(
-        response.data.message ||
-          "If an account exists, password reset instructions will be sent.",
-      );
-    } catch (err) {
-      setError(
-        err.response?.data?.message || "Unable to process your request.",
-      );
-    } finally {
-      setLoading(false);
-    }
+    setMessage("Password reset functionality will be available soon.");
   };
 
   return (
@@ -51,29 +26,35 @@ const ForgotPassword = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#f1f5f9",
+        bgcolor: "#f1f8f7",
         p: 2,
       }}
     >
-      <Paper sx={{ width: "100%", maxWidth: 430, p: 4, borderRadius: 3 }}>
-        <Typography variant="h5" fontWeight={700} mb={1}>
+      <Paper
+        elevation={3}
+        sx={{
+          width: "100%",
+          maxWidth: 430,
+          p: 4,
+          borderRadius: 3,
+        }}
+      >
+        <Typography
+          variant="h5"
+          fontWeight={800}
+          color="#103f3d"
+          textAlign="center"
+        >
           Forgot Password?
         </Typography>
 
-        <Typography color="text.secondary" mb={3}>
-          Enter your registered email address. We will send password reset
-          instructions if the account exists.
+        <Typography color="text.secondary" textAlign="center" mt={2} mb={3}>
+          Enter your registered email address.
         </Typography>
 
         {message && (
-          <Alert severity="success" sx={{ mb: 2 }}>
+          <Alert severity="info" sx={{ mb: 2 }}>
             {message}
-          </Alert>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
           </Alert>
         )}
 
@@ -85,28 +66,32 @@ const ForgotPassword = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            autoComplete="email"
+            margin="normal"
           />
 
           <Button
             fullWidth
             type="submit"
             variant="contained"
-            disabled={loading}
-            sx={{ mt: 3, py: 1.3, textTransform: "none" }}
+            sx={{
+              mt: 3,
+              py: 1.3,
+              bgcolor: "#0e8278",
+              "&:hover": { bgcolor: "#096c64" },
+            }}
           >
-            {loading ? (
-              <CircularProgress size={23} color="inherit" />
-            ) : (
-              "Send Reset Instructions"
-            )}
+            Submit
           </Button>
         </Box>
 
         <Typography textAlign="center" mt={3}>
           <Link
             to="/login"
-            style={{ color: "#2563eb", textDecoration: "none" }}
+            style={{
+              color: "#0e8278",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
           >
             Back to Login
           </Link>

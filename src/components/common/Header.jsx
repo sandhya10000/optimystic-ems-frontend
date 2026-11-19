@@ -33,10 +33,8 @@ const COLORS = {
 
 const navItems = [
   { label: "Home", path: "/" },
-  { label: "Kyc", path: "/kyc" },
-  { label: "Attendance", path: "/attendance" },
-  { label: "Assets", path: "/assets" },
-  { label: "salary Slip", path: "/payslips" },
+  { label: "About", path: "/" },
+  { label: "Contact", path: "/" },
 ];
 
 const Header = () => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { registerEmployee } from "../../services/authService";
+import { authService } from "../../services/authService";
 
 import {
   Box,
@@ -100,7 +100,7 @@ const Signup = () => {
       const { confirmPassword, ...registrationData } = formData;
 
       // Call registration API through authService
-      const response = await registerEmployee(registrationData);
+      const response = await authService.registerEmployee(registrationData);
 
       setSuccess(
         response.message ||

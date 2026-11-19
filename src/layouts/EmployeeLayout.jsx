@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 
 import {
   Box,
@@ -17,6 +17,7 @@ import {
   useMediaQuery,
   useTheme,
   Button,
+  Collapse,
 } from "@mui/material";
 
 import {
@@ -30,6 +31,10 @@ import {
   Business,
   Logout,
   Close,
+  ExpandLess,
+  ExpandMore,
+  Description,
+  Badge,
 } from "@mui/icons-material";
 
 const DRAWER_WIDTH = 260;
@@ -54,8 +59,19 @@ const menuItems = [
   },
   {
     title: "KYC",
-    path: "/employee/kyc",
     icon: <AssignmentTurnedIn />,
+    children: [
+      {
+        title: "PAN Verification",
+        path: "/employee/kyc/pan-verification",
+        icon: <Description />,
+      },
+      {
+        title: "Aadhaar Verification",
+        path: "/employee/kyc/aadhaar-verification",
+        icon: <Badge />,
+      },
+    ],
   },
   {
     title: "My Profile",
@@ -82,20 +98,38 @@ const menuItems = [
 const EmployeeLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const navigate = useNavigate();
+  const [kycOpen, setKycOpen] = useState(
+    location.pathname.startsWith("/employee/kyc"),
+  );
+
+  // Automatically expand KYC when one of its pages is active
+  useEffect(() => {
+    if (location.pathname.startsWith("/employee/kyc")) {
+      setKycOpen(true);
+    }
+  }, [location.pathname]);
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    setMobileOpen((prev) => !prev);
   };
 
   const handleLogout = () => {
-    // Replace with your actual logout logic
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+
     navigate("/login", { replace: true });
+  };
+
+  const handleNavigation = () => {
+    if (isMobile) {
+      setMobileOpen(false);
+    }
   };
 
   const drawerContent = (
@@ -170,62 +204,159 @@ const EmployeeLayout = () => {
       </Box>
 
       <List sx={{ px: 1.5, flexGrow: 1 }}>
-        {menuItems.map((item) => (
-          <ListItemButton
-            key={item.path}
-            component={NavLink}
-            to={item.path}
-            end={item.end || false}
-            onClick={() => {
-              if (isMobile) setMobileOpen(false);
-            }}
-            sx={{
-              borderRadius: "10px",
-              mb: 0.7,
-              py: 1.3,
-              color: "#D6EAE6",
-              transition: "0.2s",
+        {menuItems.map((item) => {
+          // KYC parent menu
+          if (item.children) {
+            const isKycActive = location.pathname.startsWith("/employee/kyc");
 
-              "& .MuiListItemIcon-root": {
-                color: "#A7D8CE",
-                minWidth: 40,
-              },
+            return (
+              <Box key={item.title}>
+                <ListItemButton
+                  onClick={() => setKycOpen((prev) => !prev)}
+                  sx={{
+                    borderRadius: "10px",
+                    mb: 0.7,
+                    py: 1.3,
+                    color: isKycActive ? COLORS.white : "#D6EAE6",
+                    bgcolor: isKycActive
+                      ? "rgba(15,136,125,0.25)"
+                      : "transparent",
 
-              "&.active": {
-                bgcolor: COLORS.primary,
-                color: COLORS.white,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                    "& .MuiListItemIcon-root": {
+                      color: isKycActive ? COLORS.orange : "#A7D8CE",
+                      minWidth: 40,
+                    },
+
+                    "&:hover": {
+                      bgcolor: "rgba(255,255,255,0.10)",
+                    },
+                  }}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+
+                  <ListItemText
+                    primary={item.title}
+                    primaryTypographyProps={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                    }}
+                  />
+
+                  {kycOpen ? <ExpandLess /> : <ExpandMore />}
+                </ListItemButton>
+
+                <Collapse in={kycOpen} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {item.children.map((child) => (
+                      <ListItemButton
+                        key={child.path}
+                        component={NavLink}
+                        to={child.path}
+                        onClick={handleNavigation}
+                        sx={{
+                          pl: 5,
+                          py: 1.1,
+                          mb: 0.5,
+                          borderRadius: "10px",
+                          color: "#D6EAE6",
+
+                          "& .MuiListItemIcon-root": {
+                            color: "#A7D8CE",
+                            minWidth: 34,
+                          },
+
+                          "&.active": {
+                            bgcolor: COLORS.primary,
+                            color: COLORS.white,
+
+                            "& .MuiListItemIcon-root": {
+                              color: COLORS.orange,
+                            },
+                          },
+
+                          "&:hover": {
+                            bgcolor: "rgba(255,255,255,0.10)",
+                          },
+                        }}
+                      >
+                        <ListItemIcon>{child.icon}</ListItemIcon>
+
+                        <ListItemText
+                          primary={child.title}
+                          primaryTypographyProps={{
+                            fontSize: 13,
+                            fontWeight: 500,
+                          }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              </Box>
+            );
+          }
+
+          // Normal navigation items
+          return (
+            <ListItemButton
+              key={item.path}
+              component={NavLink}
+              to={item.path}
+              end={item.end || false}
+              onClick={handleNavigation}
+              sx={{
+                borderRadius: "10px",
+                mb: 0.7,
+                py: 1.3,
+                color: "#D6EAE6",
+                transition: "0.2s",
 
                 "& .MuiListItemIcon-root": {
-                  color: COLORS.orange,
+                  color: "#A7D8CE",
+                  minWidth: 40,
                 },
-              },
 
-              "&:hover": {
-                bgcolor: "rgba(255,255,255,0.10)",
-              },
+                "&.active": {
+                  bgcolor: COLORS.primary,
+                  color: COLORS.white,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
 
-              "&.active:hover": {
-                bgcolor: COLORS.primary,
-              },
-            }}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
+                  "& .MuiListItemIcon-root": {
+                    color: COLORS.orange,
+                  },
+                },
 
-            <ListItemText
-              primary={item.title}
-              primaryTypographyProps={{
-                fontSize: 14,
-                fontWeight: 600,
+                "&:hover": {
+                  bgcolor: "rgba(255,255,255,0.10)",
+                },
+
+                "&.active:hover": {
+                  bgcolor: COLORS.primary,
+                },
               }}
-            />
-          </ListItemButton>
-        ))}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+
+              <ListItemText
+                primary={item.title}
+                primaryTypographyProps={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}
+              />
+            </ListItemButton>
+          );
+        })}
       </List>
 
       {/* Logout */}
       <Box sx={{ p: 2 }}>
-        <Divider sx={{ borderColor: "rgba(255,255,255,0.12)", mb: 2 }} />
+        <Divider
+          sx={{
+            borderColor: "rgba(255,255,255,0.12)",
+            mb: 2,
+          }}
+        />
 
         <Button
           fullWidth
@@ -238,6 +369,7 @@ const EmployeeLayout = () => {
             py: 1.2,
             borderRadius: "10px",
             textTransform: "none",
+
             "&:hover": {
               bgcolor: "rgba(255,255,255,0.10)",
             },
@@ -255,7 +387,11 @@ const EmployeeLayout = () => {
 
   return (
     <Box
-      sx={{ display: "flex", minHeight: "100vh", bgcolor: COLORS.background }}
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: COLORS.background,
+      }}
     >
       {/* Top Header */}
       <AppBar
@@ -293,7 +429,10 @@ const EmployeeLayout = () => {
           <Typography
             variant="body2"
             color={COLORS.secondary}
-            sx={{ mr: 1.5, display: { xs: "none", sm: "block" } }}
+            sx={{
+              mr: 1.5,
+              display: { xs: "none", sm: "block" },
+            }}
           >
             Welcome, Employee
           </Typography>
@@ -311,7 +450,7 @@ const EmployeeLayout = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Desktop Fixed Sidebar */}
+      {/* Sidebar */}
       <Box
         component="nav"
         sx={{
@@ -319,6 +458,7 @@ const EmployeeLayout = () => {
           flexShrink: { md: 0 },
         }}
       >
+        {/* Mobile Drawer */}
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -336,6 +476,7 @@ const EmployeeLayout = () => {
           {drawerContent}
         </Drawer>
 
+        {/* Desktop Drawer */}
         <Drawer
           variant="permanent"
           open
