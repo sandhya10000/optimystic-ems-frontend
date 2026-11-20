@@ -367,6 +367,27 @@ export const kycAPI = {
       throw error;
     }
   },
+  // ======================================
+  // ADMIN - GET ALL EMPLOYEES PAN
+  // ======================================
+  getAllPANVerifications: async (params = {}) => {
+    const response = await api.get("/kyc/admin/getAllpan", {
+      params,
+    });
+
+    return response.data;
+  },
+
+  // ======================================
+  // ADMIN - GET ALL EMPLOYEES DIGILOCKER
+  // ======================================
+  getAllDigilockerVerifications: async (params = {}) => {
+    const response = await api.get("/kyc/admin/getAlldigilocker", {
+      params,
+    });
+
+    return response.data;
+  },
 };
 export const salarySlipAPI = {
   // ========================================

@@ -22,6 +22,7 @@ import {
 import {
   Menu as MenuIcon,
   Dashboard,
+  VerifiedUser,
   People,
   Person,
   ReceiptLong,
@@ -51,6 +52,11 @@ const menuItems = [
     path: "/admin",
     icon: <Dashboard />,
     end: true,
+  },
+  {
+    title: "KYC Management",
+    path: "/admin/kyc",
+    icon: <VerifiedUser />,
   },
 
   {

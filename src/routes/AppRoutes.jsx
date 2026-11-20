@@ -58,6 +58,7 @@ const AssetManagement = lazy(() => import("../pages/admin/AssetManagement"));
 const AttendanceManagement = lazy(
   () => import("../pages/admin/AttendanceManagement"),
 );
+const AdminKYC = lazy(() => import("../pages/admin/AdminKYC"));
 
 // --------------------------------------------------
 // PAGE LOADER
@@ -123,6 +124,7 @@ const AppRoutes = () => {
             <Route path="salary-slips" element={<SalarySlipManagement />} />
             <Route path="assets" element={<AssetManagement />} />
             <Route path="attendance" element={<AttendanceManagement />} />
+            <Route path="kyc" element={<AdminKYC />} />
           </Route>
 
           {/* EMPLOYEE ROUTES */}
