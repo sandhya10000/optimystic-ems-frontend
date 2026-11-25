@@ -40,50 +40,6 @@ const Footer = () => {
               payroll.
             </Typography>
           </Box>
-
-          <Stack direction="row" flexWrap="wrap" gap={2.5}>
-            <Link
-              component={RouterLink}
-              to="/"
-              underline="none"
-              sx={{
-                color: "#ffffff",
-                "&:hover": {
-                  color: "#f59e0b",
-                },
-              }}
-            >
-              Home
-            </Link>
-
-            <Link
-              component={RouterLink}
-              to="/login"
-              underline="none"
-              sx={{
-                color: "#ffffff",
-                "&:hover": {
-                  color: "#f59e0b",
-                },
-              }}
-            >
-              Login
-            </Link>
-
-            <Link
-              component={RouterLink}
-              to="/signup"
-              underline="none"
-              sx={{
-                color: "#ffffff",
-                "&:hover": {
-                  color: "#f59e0b",
-                },
-              }}
-            >
-              Sign Up
-            </Link>
-          </Stack>
         </Stack>
 
         <Box

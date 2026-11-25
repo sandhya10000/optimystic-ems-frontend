@@ -1,714 +1,663 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { authService, employeeAPI } from "../../services/authService";
 
 import {
   Box,
-  Grid,
-  Card,
-  CardContent,
+  Paper,
   Typography,
-  Avatar,
-  Button,
   TextField,
+  Button,
+  Grid,
+  MenuItem,
+  Alert,
+  CircularProgress,
   Divider,
   Chip,
-  Stack,
-  Alert,
 } from "@mui/material";
 
-import {
-  Person,
-  Email,
-  Phone,
-  Business,
-  Work,
-  Edit,
-  Save,
-  Cancel,
-  Badge,
-  CalendarMonth,
-  LocationOn,
-  AccountCircle,
-} from "@mui/icons-material";
-
-// ======================================================
-// THEME COLORS
-// ======================================================
-
-const COLORS = {
-  darkGreen: "#0B403C",
-  teal: "#0F887D",
-  lightMint: "#F0F8F6",
-  border: "#DCEBE7",
-  text: "#24433F",
-  muted: "#718783",
-  white: "#FFFFFF",
+const initialForm = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  dateOfBirth: "",
+  gender: "",
+  maritalStatus: "",
+  address: "",
+  city: "",
+  state: "",
+  pincode: "",
+  emergencyContactName: "",
+  emergencyContactNumber: "",
 };
-
-// ======================================================
-// SAFE VALUE CONVERSION
-// ======================================================
-
-const safeText = (value) => {
-  if (value === null || value === undefined) return "";
-
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return String(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(safeText).filter(Boolean).join(", ");
-  }
-
-  if (typeof value === "object") {
-    const displayValue =
-      value.name ??
-      value.title ??
-      value.label ??
-      value.value ??
-      value.firstName;
-
-    if (displayValue !== undefined) {
-      return safeText(displayValue);
-    }
-
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return "";
-    }
-  }
-
-  return "";
-};
-
-// ======================================================
-// GET LOGGED-IN USER
-// ======================================================
-
-const getLoggedInUser = () => {
-  try {
-    const storedUser = localStorage.getItem("user");
-
-    if (!storedUser) return {};
-
-    const parsedUser = JSON.parse(storedUser);
-
-    if (
-      !parsedUser ||
-      typeof parsedUser !== "object" ||
-      Array.isArray(parsedUser)
-    ) {
-      return {};
-    }
-
-    return parsedUser;
-  } catch {
-    return {};
-  }
-};
-
-// ======================================================
-// REUSABLE SECTION HEADING
-// ======================================================
-
-const SectionHeading = ({ icon, title, subtitle }) => (
-  <Box sx={{ mb: 3 }}>
-    <Stack direction="row" alignItems="center" spacing={1.5}>
-      <Box
-        sx={{
-          width: 40,
-          height: 40,
-          borderRadius: 2,
-          bgcolor: COLORS.lightMint,
-          color: COLORS.teal,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {icon}
-      </Box>
-
-      <Box>
-        <Typography fontWeight={700} color={COLORS.darkGreen} fontSize={17}>
-          {title}
-        </Typography>
-
-        {subtitle && (
-          <Typography fontSize={12} color={COLORS.muted}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-    </Stack>
-  </Box>
-);
-
-// ======================================================
-// PROFILE COMPONENT
-// ======================================================
 
 const MyProfile = () => {
-  const loggedInUser = getLoggedInUser();
+  const [formData, setFormData] = useState(initialForm);
+  const [profileData, setProfileData] = useState(null);
 
-  const initialProfile = {
-    employeeId: safeText(loggedInUser.employeeId),
-    firstName: safeText(loggedInUser.firstName),
-    lastName: safeText(loggedInUser.lastName),
-    email: safeText(loggedInUser.email),
-    phone: safeText(loggedInUser.phone),
-    department: safeText(loggedInUser.department),
-    designation: safeText(loggedInUser.designation),
-    joiningDate: safeText(loggedInUser.joiningDate).slice(0, 10),
-    employmentType: safeText(loggedInUser.employmentType),
-    reportingManager: safeText(loggedInUser.reportingManager),
-    address: safeText(loggedInUser.address),
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  // Convert date for HTML date input
+  const formatDate = (date) => {
+    if (!date) return "";
+
+    return new Date(date).toISOString().split("T")[0];
   };
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [profile, setProfile] = useState(initialProfile);
-  const [originalProfile, setOriginalProfile] = useState(initialProfile);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
+  // Fetch logged-in employee profile
+  const fetchEmployeeProfile = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-  const accountStatus = safeText(loggedInUser.accountStatus) || "Unknown";
+      const response = await employeeAPI.getMyProfile();
 
-  const normalizedStatus = accountStatus.toLowerCase();
+      console.log("Complete Profile Response:", response);
 
-  const statusColor =
-    normalizedStatus === "approved"
-      ? "success"
-      : normalizedStatus === "pending"
-        ? "warning"
-        : "default";
+      // Handle different possible API response structures
+      const user =
+        response?.user ||
+        response?.profile ||
+        response?.data?.user ||
+        response?.data?.profile ||
+        response?.data;
 
-  const fullName =
-    `${profile.firstName} ${profile.lastName}`.trim() || "Employee";
+      console.log("Fetched User:", user);
 
-  const initials =
-    [profile.firstName, profile.lastName]
-      .filter(Boolean)
-      .map((name) => name.charAt(0))
-      .join("")
-      .toUpperCase() || "E";
+      if (!user || typeof user !== "object") {
+        throw new Error("Employee profile data not found.");
+      }
 
-  // ======================================================
-  // HANDLE INPUT CHANGE
-  // ======================================================
+      // Save profile data for UI
+      setProfileData(user);
 
+      // Check profile completion
+      if (user.profileCompleted === true) {
+        setSubmitted(true);
+      } else {
+        setSubmitted(false);
+      }
+    } catch (error) {
+      console.error("Fetch Profile Error:", error);
+      setError(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to fetch employee profile.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployeeProfile();
+  }, []);
+
+  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setProfile((prev) => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
-
-    setSuccess("");
-    setError("");
   };
 
-  // ======================================================
-  // SAVE PROFILE
-  // ======================================================
+  // Validate form
+  const validateForm = () => {
+    if (!formData.firstName.trim()) {
+      setError("Please enter your first name.");
+      return false;
+    }
 
-  const handleSave = () => {
+    if (!formData.lastName.trim()) {
+      setError("Please enter your last name.");
+      return false;
+    }
+
+    if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return false;
+    }
+
+    if (
+      formData.emergencyContactNumber &&
+      !/^[6-9]\d{9}$/.test(formData.emergencyContactNumber.trim())
+    ) {
+      setError("Please enter a valid emergency contact number.");
+      return false;
+    }
+
+    if (!/^\d{6}$/.test(formData.pincode.trim())) {
+      setError("Please enter a valid 6-digit PIN code.");
+      return false;
+    }
+
+    return true;
+  };
+
+  // Submit employee profile
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
     try {
-      const updatedUser = {
-        ...loggedInUser,
-        ...profile,
+      setLoading(true);
+      setError("");
+      setSuccess("");
+
+      const profileDetails = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: formData.phone.trim(),
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender,
+        maritalStatus: formData.maritalStatus,
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        state: formData.state.trim(),
+        pincode: formData.pincode.trim(),
+        emergencyContactName: formData.emergencyContactName.trim(),
+        emergencyContactNumber: formData.emergencyContactNumber.trim(),
       };
 
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      // Submit profile
+      const submitResponse = await employeeAPI.completeProfile(profileDetails);
 
-      setOriginalProfile({ ...profile });
-      setIsEditing(false);
-      setSuccess("Your profile has been updated successfully.");
-      setError("");
-    } catch {
-      setError("Unable to save profile. Please try again.");
-      setSuccess("");
+      console.log("PUT API RESPONSE:", submitResponse);
+
+      // Fetch updated profile from GET API
+      const profileResponse = await employeeAPI.getMyProfile();
+
+      console.log("GET API RESPONSE:", profileResponse);
+
+      const user =
+        profileResponse?.user ||
+        profileResponse?.profile ||
+        profileResponse?.data?.user ||
+        profileResponse?.data?.profile ||
+        profileResponse?.data ||
+        profileResponse;
+
+      if (!user?._id) {
+        throw new Error("Unable to load updated employee profile.");
+      }
+
+      setProfileData(user);
+      setSubmitted(user.profileCompleted === true);
+
+      if (user.profileCompleted) {
+        setSuccess("Your profile has been submitted successfully.");
+      } else {
+        setError(
+          "Profile submission could not be confirmed. Please refresh and check.",
+        );
+      }
+    } catch (error) {
+      console.error("Profile Submission Error:", error);
+      console.error("Backend Error:", error.response?.data);
+
+      setError(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to submit your profile.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ======================================================
-  // CANCEL EDITING
-  // ======================================================
+  // Reusable form field
+  const renderField = (label, name, options = {}) => (
+    <Grid item xs={12} sm={6}>
+      <TextField
+        fullWidth
+        size="small"
+        label={label}
+        name={name}
+        value={formData[name] || ""}
+        onChange={handleChange}
+        required={options.required ?? false}
+        type={options.type || "text"}
+        select={Boolean(options.select)}
+        multiline={Boolean(options.multiline)}
+        rows={options.rows || 1}
+        autoComplete="off"
+        inputProps={options.inputProps}
+        InputLabelProps={options.type === "date" ? { shrink: true } : undefined}
+        sx={{
+          "& .MuiOutlinedInput-root.Mui-focused fieldset": {
+            borderColor: "#0e8278",
+            borderWidth: 2,
+          },
+          "& .MuiInputLabel-root.Mui-focused": {
+            color: "#0e8278",
+          },
+        }}
+      >
+        {options.options?.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </TextField>
+    </Grid>
+  );
 
-  const handleCancel = () => {
-    setProfile({ ...originalProfile });
-    setIsEditing(false);
-    setSuccess("");
-    setError("");
+  // Read-only profile field
+  const showProfileField = (label, value) => (
+    <Grid item xs={12} sm={6}>
+      <Box
+        sx={{
+          p: 1.5,
+          border: "1px solid #dce8e7",
+          borderRadius: 2,
+          minHeight: 65,
+          backgroundColor: "#ffffff",
+        }}
+      >
+        <Typography variant="caption" color="text.secondary" display="block">
+          {label}
+        </Typography>
+
+        <Typography
+          variant="body1"
+          fontWeight={600}
+          sx={{
+            color: "#103f3d",
+            whiteSpace: "pre-wrap",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {value || "Not provided"}
+        </Typography>
+      </Box>
+    </Grid>
+  );
+
+  const getGender = (value) => {
+    const options = {
+      male: "Male",
+      female: "Female",
+      other: "Other",
+      prefer_not_to_say: "Prefer not to say",
+    };
+
+    return options[value] || value;
   };
 
-  // ======================================================
-  // PROFILE FIELDS
-  // ======================================================
+  const getMaritalStatus = (value) => {
+    const options = {
+      single: "Single",
+      married: "Married",
+      other: "Other",
+    };
 
-  const personalFields = [
-    { label: "First Name", name: "firstName" },
-    { label: "Last Name", name: "lastName" },
-    { label: "Email Address", name: "email", type: "email" },
-    { label: "Phone Number", name: "phone" },
-    { label: "Address", name: "address", multiline: true },
-  ];
-
-  const employmentFields = [
-    { label: "Employee ID", name: "employeeId" },
-    { label: "Department", name: "department" },
-    { label: "Designation", name: "designation" },
-    { label: "Joining Date", name: "joiningDate", type: "date" },
-    { label: "Employment Type", name: "employmentType" },
-    { label: "Reporting Manager", name: "reportingManager" },
-  ];
-
-  // ======================================================
-  // COMMON FIELD STYLE
-  // ======================================================
-
-  const textFieldStyle = {
-    "& .MuiOutlinedInput-root": {
-      borderRadius: 2,
-      bgcolor: isEditing ? COLORS.white : "#F8FBFA",
-      "& fieldset": {
-        borderColor: COLORS.border,
-      },
-      "&:hover fieldset": {
-        borderColor: COLORS.teal,
-      },
-      "&.Mui-focused fieldset": {
-        borderColor: COLORS.teal,
-      },
-    },
-    "& .MuiInputLabel-root.Mui-focused": {
-      color: COLORS.teal,
-    },
+    return options[value] || value;
   };
-
-  const renderFields = (fields) =>
-    fields.map((field) => (
-      <Grid item xs={12} sm={6} key={field.name}>
-        <TextField
-          fullWidth
-          label={field.label}
-          name={field.name}
-          value={profile[field.name]}
-          onChange={handleChange}
-          disabled={!isEditing}
-          size="small"
-          type={field.type || "text"}
-          multiline={field.multiline || false}
-          minRows={field.multiline ? 2 : undefined}
-          InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
-          sx={textFieldStyle}
-        />
-      </Grid>
-    ));
-
-  // ======================================================
-  // UI
-  // ======================================================
 
   return (
     <Box
       sx={{
+        minHeight: "100vh",
         width: "100%",
-        minHeight: "100%",
-        color: COLORS.text,
+        backgroundColor: "#f1f8f7",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        py: 4,
+        px: 2,
       }}
     >
-      {/* PAGE HEADER */}
-
-      <Box
+      <Paper
+        elevation={0}
         sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: { xs: "flex-start", sm: "center" },
-          flexDirection: { xs: "column", sm: "row" },
-          gap: 2,
-          mb: 3,
+          width: "100%",
+          maxWidth: "850px",
+          mx: "auto",
+          p: { xs: 2.5, sm: 4 },
+          border: "1px solid #dce8e7",
+          borderRadius: 3,
+          boxShadow: "0 8px 30px rgba(11, 64, 61, 0.08)",
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={800} color={COLORS.darkGreen}>
+        {/* Header */}
+        <Box textAlign="center" mb={4}>
+          <Box
+            sx={{
+              width: 58,
+              height: 58,
+              borderRadius: 2,
+              bgcolor: "#0b403d",
+              color: "#f59e0b",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mx: "auto",
+              mb: 2,
+              fontSize: 19,
+              fontWeight: 800,
+            }}
+          >
+            EMS
+          </Box>
+
+          <Typography
+            variant="h4"
+            fontWeight={800}
+            sx={{
+              color: "#103f3d",
+              fontSize: { xs: 25, sm: 32 },
+            }}
+          >
             My Profile
           </Typography>
 
-          <Typography color={COLORS.muted} fontSize={13} mt={0.5}>
-            View and manage your personal and employment information.
+          <Typography color="text.secondary" mt={1}>
+            {submitted
+              ? "Your employee profile information"
+              : "Complete your employee profile information"}
           </Typography>
+
+          <Box
+            sx={{
+              width: 55,
+              height: 4,
+              bgcolor: "#f59e0b",
+              borderRadius: 5,
+              mx: "auto",
+              mt: 2,
+            }}
+          />
         </Box>
 
-        {!isEditing ? (
-          <Button
-            variant="contained"
-            startIcon={<Edit />}
-            onClick={() => {
-              setSuccess("");
-              setError("");
-              setIsEditing(true);
-            }}
-            sx={{
-              bgcolor: COLORS.darkGreen,
-              borderRadius: 2,
-              px: 2.5,
-              py: 1,
-              textTransform: "none",
-              fontWeight: 700,
-              "&:hover": {
-                bgcolor: COLORS.teal,
-              },
-            }}
+        {/* Loading */}
+        {loading && (
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            py={5}
           >
-            Edit Profile
-          </Button>
-        ) : (
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Cancel />}
-              onClick={handleCancel}
-              sx={{
-                borderColor: COLORS.border,
-                color: COLORS.darkGreen,
-                borderRadius: 2,
-                textTransform: "none",
-                "&:hover": {
-                  borderColor: COLORS.teal,
-                  bgcolor: COLORS.lightMint,
-                },
-              }}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              variant="contained"
-              startIcon={<Save />}
-              onClick={handleSave}
-              sx={{
-                bgcolor: COLORS.teal,
-                borderRadius: 2,
-                textTransform: "none",
-                fontWeight: 700,
-                "&:hover": {
-                  bgcolor: COLORS.darkGreen,
-                },
-              }}
-            >
-              Save Changes
-            </Button>
-          </Stack>
+            <CircularProgress sx={{ color: "#0e8278" }} />
+          </Box>
         )}
-      </Box>
 
-      {/* ALERT MESSAGES */}
+        {!loading && (
+          <>
+            {/* Messages */}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
-      {success && (
-        <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
-          {success}
-        </Alert>
-      )}
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {success}
+              </Alert>
+            )}
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <Grid container spacing={3}>
-        {/* LEFT PROFILE CARD */}
-
-        <Grid item xs={12} md={4}>
-          <Card
-            elevation={0}
-            sx={{
-              height: "100%",
-              border: `1px solid ${COLORS.border}`,
-              borderRadius: 3,
-              overflow: "hidden",
-              bgcolor: COLORS.white,
-            }}
-          >
-            {/* GREEN PROFILE HEADER */}
-
-            <Box
-              sx={{
-                height: 115,
-                background: `linear-gradient(120deg, ${COLORS.darkGreen}, ${COLORS.teal})`,
-                position: "relative",
-              }}
-            >
-              <Box
-                sx={{
-                  position: "absolute",
-                  width: 150,
-                  height: 150,
-                  borderRadius: "50%",
-                  border: "25px solid rgba(255,255,255,0.07)",
-                  right: -35,
-                  top: -65,
-                }}
-              />
-            </Box>
-
-            <CardContent
-              sx={{
-                textAlign: "center",
-                px: 3,
-                pb: 3,
-                mt: -7,
-                position: "relative",
-              }}
-            >
-              <Avatar
-                sx={{
-                  width: 105,
-                  height: 105,
-                  mx: "auto",
-                  mb: 1.5,
-                  bgcolor: COLORS.lightMint,
-                  color: COLORS.darkGreen,
-                  fontSize: 34,
-                  fontWeight: 800,
-                  border: `5px solid ${COLORS.white}`,
-                  boxShadow: "0 3px 12px rgba(11,64,60,0.12)",
-                }}
-              >
-                {initials}
-              </Avatar>
-
-              <Typography
-                variant="h6"
-                fontWeight={800}
-                color={COLORS.darkGreen}
-              >
-                {fullName}
-              </Typography>
-
-              <Typography color={COLORS.muted} fontSize={13} mb={1.5}>
-                {profile.designation || "Employee"}
-              </Typography>
-
-              <Chip
-                label={
-                  normalizedStatus === "approved"
-                    ? "Active Employee"
-                    : normalizedStatus === "pending"
-                      ? "Pending Approval"
-                      : accountStatus
-                }
-                color={statusColor}
-                size="small"
-                sx={{
-                  fontWeight: 700,
-                  borderRadius: 1.5,
-                }}
-              />
-
-              <Divider sx={{ my: 3, borderColor: COLORS.border }} />
-
-              {/* PROFILE QUICK DETAILS */}
-
-              <Stack spacing={2.2} textAlign="left">
-                <Box display="flex" alignItems="center" gap={1.5}>
-                  <Box
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 2,
-                      bgcolor: COLORS.lightMint,
-                      color: COLORS.teal,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Badge fontSize="small" />
-                  </Box>
-
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography fontSize={11} color={COLORS.muted}>
-                      Employee ID
-                    </Typography>
-                    <Typography fontWeight={700} fontSize={13}>
-                      {profile.employeeId || "-"}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box display="flex" alignItems="center" gap={1.5}>
-                  <Box
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 2,
-                      bgcolor: COLORS.lightMint,
-                      color: COLORS.teal,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Email fontSize="small" />
-                  </Box>
-
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography fontSize={11} color={COLORS.muted}>
-                      Email Address
-                    </Typography>
-                    <Typography
-                      fontWeight={700}
-                      fontSize={13}
-                      sx={{ wordBreak: "break-word" }}
-                    >
-                      {profile.email || "-"}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box display="flex" alignItems="center" gap={1.5}>
-                  <Box
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 2,
-                      bgcolor: COLORS.lightMint,
-                      color: COLORS.teal,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Phone fontSize="small" />
-                  </Box>
-
-                  <Box>
-                    <Typography fontSize={11} color={COLORS.muted}>
-                      Phone Number
-                    </Typography>
-                    <Typography fontWeight={700} fontSize={13}>
-                      {profile.phone || "-"}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box display="flex" alignItems="center" gap={1.5}>
-                  <Box
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 2,
-                      bgcolor: COLORS.lightMint,
-                      color: COLORS.teal,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Business fontSize="small" />
-                  </Box>
-
-                  <Box>
-                    <Typography fontSize={11} color={COLORS.muted}>
-                      Department
-                    </Typography>
-                    <Typography fontWeight={700} fontSize={13}>
-                      {profile.department || "-"}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* RIGHT PROFILE DETAILS */}
-
-        <Grid item xs={12} md={8}>
-          <Stack spacing={3}>
-            {/* PERSONAL INFORMATION */}
-
-            <Card
-              elevation={0}
-              sx={{
-                border: `1px solid ${COLORS.border}`,
-                borderRadius: 3,
-              }}
-            >
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <SectionHeading
-                  icon={<Person />}
-                  title="Personal Information"
-                  subtitle="Your basic personal and contact details"
-                />
-
-                <Grid container spacing={2.5}>
-                  {renderFields(personalFields)}
-                </Grid>
-              </CardContent>
-            </Card>
-
-            {/* EMPLOYMENT INFORMATION */}
-
-            <Card
-              elevation={0}
-              sx={{
-                border: `1px solid ${COLORS.border}`,
-                borderRadius: 3,
-              }}
-            >
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <SectionHeading
-                  icon={<Work />}
-                  title="Employment Information"
-                  subtitle="Your job and company-related details"
-                />
-
-                <Grid container spacing={2.5}>
-                  {renderFields(employmentFields)}
-                </Grid>
-              </CardContent>
-            </Card>
-
-            {/* PROFILE INFORMATION NOTE */}
-
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 1.5,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: COLORS.lightMint,
-                border: `1px solid ${COLORS.border}`,
-              }}
-            >
-              <AccountCircle sx={{ color: COLORS.teal, mt: 0.2 }} />
-
+            {/* Completed Profile - Read Only */}
+            {submitted ? (
               <Box>
-                <Typography
-                  fontWeight={700}
-                  fontSize={13}
-                  color={COLORS.darkGreen}
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  flexWrap="wrap"
+                  gap={1}
+                  mb={3}
                 >
-                  Keep your profile updated
+                  <Typography variant="h6" fontWeight={800} color="#0b403d">
+                    Employee Profile Details
+                  </Typography>
+
+                  <Chip
+                    label="Profile Completed"
+                    color="success"
+                    variant="outlined"
+                  />
+                </Box>
+
+                {/* Employee Information */}
+                <Typography
+                  variant="h6"
+                  fontWeight={800}
+                  color="#0b403d"
+                  mb={2}
+                >
+                  1. Personal Information
                 </Typography>
 
-                <Typography fontSize={12} color={COLORS.muted} mt={0.3}>
-                  Make sure your contact and employment information is correct
-                  so your organization can reach you when needed.
+                <Grid container spacing={2}>
+                  {showProfileField("First Name", profileData?.firstName)}
+
+                  {showProfileField("Last Name", profileData?.lastName)}
+
+                  {showProfileField("Employee ID", profileData?.employeeId)}
+
+                  {showProfileField("Email Address", profileData?.email)}
+
+                  {showProfileField(
+                    "Date of Birth",
+                    profileData?.dateOfBirth
+                      ? formatDate(profileData.dateOfBirth)
+                      : "",
+                  )}
+
+                  {showProfileField("Gender", getGender(profileData?.gender))}
+
+                  {showProfileField(
+                    "Marital Status",
+                    getMaritalStatus(profileData?.maritalStatus),
+                  )}
+                </Grid>
+
+                <Divider sx={{ my: 3, borderColor: "#dce8e7" }} />
+
+                {/* Contact Information */}
+                <Typography
+                  variant="h6"
+                  fontWeight={800}
+                  color="#0b403d"
+                  mb={2}
+                >
+                  2. Contact Information
                 </Typography>
+
+                <Grid container spacing={2}>
+                  {showProfileField("Mobile Number", profileData?.phone)}
+
+                  {showProfileField("City", profileData?.city)}
+
+                  {showProfileField("State", profileData?.state)}
+
+                  {showProfileField("PIN Code", profileData?.pincode)}
+
+                  {showProfileField("Complete Address", profileData?.address)}
+                </Grid>
+
+                <Divider sx={{ my: 3, borderColor: "#dce8e7" }} />
+
+                {/* Emergency Contact */}
+                <Typography
+                  variant="h6"
+                  fontWeight={800}
+                  color="#0b403d"
+                  mb={2}
+                >
+                  3. Emergency Contact
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {showProfileField(
+                    "Contact Person Name",
+                    profileData?.emergencyContactName,
+                  )}
+
+                  {showProfileField(
+                    "Emergency Mobile Number",
+                    profileData?.emergencyContactNumber,
+                  )}
+                </Grid>
+
+                <Alert severity="success" sx={{ mt: 3 }}>
+                  Your profile has been successfully completed.
+                </Alert>
               </Box>
-            </Box>
-          </Stack>
-        </Grid>
-      </Grid>
+            ) : (
+              /* Profile Completion Form */
+              <Box component="form" onSubmit={handleSubmit}>
+                <Typography
+                  variant="h6"
+                  fontWeight={800}
+                  color="#0b403d"
+                  mb={2}
+                >
+                  1. Personal Information
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {renderField("First Name", "firstName", {
+                    required: true,
+                  })}
+
+                  {renderField("Last Name", "lastName", {
+                    required: true,
+                  })}
+
+                  {renderField("Date of Birth", "dateOfBirth", {
+                    type: "date",
+                    required: true,
+                  })}
+
+                  {renderField("Gender", "gender", {
+                    select: true,
+                    required: true,
+                    options: [
+                      { value: "male", label: "Male" },
+                      { value: "female", label: "Female" },
+                      { value: "other", label: "Other" },
+                      {
+                        value: "prefer_not_to_say",
+                        label: "Prefer not to say",
+                      },
+                    ],
+                  })}
+
+                  {renderField("Marital Status", "maritalStatus", {
+                    select: true,
+                    options: [
+                      { value: "single", label: "Single" },
+                      { value: "married", label: "Married" },
+                      { value: "other", label: "Other" },
+                    ],
+                  })}
+                </Grid>
+
+                <Divider sx={{ my: 3, borderColor: "#dce8e7" }} />
+
+                <Typography
+                  variant="h6"
+                  fontWeight={800}
+                  color="#0b403d"
+                  mb={2}
+                >
+                  2. Contact Information
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {renderField("Email Address", "email", {
+                    type: "email",
+                  })}
+
+                  {renderField("Mobile Number", "phone", {
+                    required: true,
+                    inputProps: { maxLength: 10 },
+                  })}
+
+                  {renderField("Complete Address", "address", {
+                    required: true,
+                    multiline: true,
+                    rows: 2,
+                  })}
+
+                  {renderField("City", "city", {
+                    required: true,
+                  })}
+
+                  {renderField("State", "state", {
+                    required: true,
+                  })}
+
+                  {renderField("PIN Code", "pincode", {
+                    required: true,
+                    inputProps: { maxLength: 6 },
+                  })}
+                </Grid>
+
+                <Divider sx={{ my: 3, borderColor: "#dce8e7" }} />
+
+                <Typography
+                  variant="h6"
+                  fontWeight={800}
+                  color="#0b403d"
+                  mb={2}
+                >
+                  3. Emergency Contact
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {renderField("Contact Person Name", "emergencyContactName")}
+
+                  {renderField(
+                    "Emergency Mobile Number",
+                    "emergencyContactNumber",
+                    {
+                      inputProps: { maxLength: 10 },
+                    },
+                  )}
+                </Grid>
+
+                <Divider sx={{ my: 3, borderColor: "#dce8e7" }} />
+
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Please verify all your details before submitting your profile.
+                </Alert>
+
+                <Button
+                  fullWidth
+                  type="submit"
+                  variant="contained"
+                  disabled={loading}
+                  sx={{
+                    mt: 2,
+                    py: 1.5,
+                    bgcolor: "#0e8278",
+                    color: "#ffffff",
+                    borderRadius: 2,
+                    fontWeight: 800,
+                    fontSize: 15,
+                    textTransform: "none",
+                    "&:hover": {
+                      bgcolor: "#096c64",
+                    },
+                  }}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    "Submit Profile"
+                  )}
+                </Button>
+              </Box>
+            )}
+          </>
+        )}
+      </Paper>
     </Box>
   );
 };

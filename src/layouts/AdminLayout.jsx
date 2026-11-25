@@ -54,6 +54,13 @@ const menuItems = [
     end: true,
   },
   {
+    title: "Create Employee",
+    path: "/admin/createEmployee",
+    icon: <Dashboard />,
+    end: true,
+  },
+
+  {
     title: "KYC Management",
     path: "/admin/kyc",
     icon: <VerifiedUser />,

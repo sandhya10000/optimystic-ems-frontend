@@ -218,7 +218,7 @@ const Signup = () => {
           </Typography>
 
           <Typography color="text.secondary" mt={1}>
-            Create your EMS employee account
+            Complete your EMS employee account
           </Typography>
 
           <Box
@@ -361,23 +361,6 @@ const Signup = () => {
           </Grid>
 
           <Divider sx={{ my: 3, borderColor: "#dce8e7" }} />
-
-          {/* Account Security */}
-          <Typography variant="h6" fontWeight={800} color="#0b403d" mb={2}>
-            5. Account Security
-          </Typography>
-
-          <Grid container spacing={2}>
-            {renderField("Password", "password", {
-              type: "password",
-              required: true,
-            })}
-
-            {renderField("Confirm Password", "confirmPassword", {
-              type: "password",
-              required: true,
-            })}
-          </Grid>
 
           {/* Information Alert */}
           <Alert

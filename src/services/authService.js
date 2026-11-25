@@ -284,53 +284,28 @@ export const employeeAPI = {
   },
 
   // GET TODAY'S ATTENDANCE
-  getTodayAttendance: async () => {
-    try {
-      const response = await api.get("/employee/attendance/today");
-      return response.data;
-    } catch (error) {
-      throw new Error(
-        getErrorMessage(error, "Unable to fetch today's attendance."),
-      );
-    }
-  },
+  getTodayAttendance: async () => api.get("/employee/attendance/today"),
 
   // GET MONTHLY ATTENDANCE
-  getMyAttendance: async (month) => {
-    try {
-      const response = await api.get("/employee/attendance/my", {
-        params: { month },
-      });
-
-      return response.data;
-    } catch (error) {
-      throw new Error(
-        getErrorMessage(error, "Unable to fetch attendance history."),
-      );
-    }
-  },
+  getMyAttendance: async (month) =>
+    api.get("/employee/attendance/my", {
+      params: { month },
+    }),
 
   // EMPLOYEE CHECK-IN
-  employeeCheckIn: async () => {
-    try {
-      const response = await api.post("/employee/attendance/check-in");
-
-      return response.data;
-    } catch (error) {
-      throw new Error(getErrorMessage(error, "Check-in failed."));
-    }
-  },
+  employeeCheckIn: async () => api.post("/employee/attendance/check-in"),
 
   // EMPLOYEE CHECK-OUT
-  employeeCheckOut: async () => {
-    try {
-      const response = await api.post("/employee/attendance/check-out");
+  employeeCheckOut: () => api.post("/employee/attendance/check-out"),
+  createEmployee: (data) => api.post("/employee/create", data),
 
-      return response.data;
-    } catch (error) {
-      throw new Error(getErrorMessage(error, "Check-out failed."));
-    }
-  },
+  getMyProfile: () => api.get("/employee/my-profile"),
+
+  completeProfile: (data) => api.put("/employee/complete-profile", data),
+
+  updateProfile: (data) => api.put("/employee/update-profile", data),
+  getEmployee: (employeeId) =>
+    api.get(`/employee/getEmployee/${encodeURIComponent(employeeId)}`),
 };
 
 export const kycAPI = {
